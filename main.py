@@ -21,13 +21,22 @@ def stream_video(url: str, format: str = "best"):
     return process
 
 @app.get("/download/youtube")
-def download_youtube(url: str = Query(...)):
+def download_youtube(
+    url: str = Query(...),
+    format: str = Query("best") 
+):
     try:
-        process = stream_video(url)
+        process = stream_video(url, format)
+        if "mp3" in format or "audio" in format:
+            media_type = "audio/mpeg"
+            filename = "audio.mp3"
+        else:
+            media_type = "video/mp4"
+            filename = "video.mp4"
         return StreamingResponse(
             process.stdout,
-            media_type="video/mp4",
-            headers={"Content-Disposition": "attachment; filename=video.mp4"}
+            media_type=media_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
