@@ -1,9 +1,22 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 import yt_dlp
 import subprocess
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  
+        "https://ytmate.in",      
+        "http://ytmate.in",       
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def stream_video(url: str, format: str = "best"):
     ydl_opts = {
