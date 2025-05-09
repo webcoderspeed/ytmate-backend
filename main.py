@@ -35,32 +35,48 @@ def download_youtube(url: str = Query(...)):
 @app.get("/download/facebook")
 def download_facebook(url: str = Query(...)):
     try:
-        file_path = download_video(url)
-        return FileResponse(file_path, filename=os.path.basename(file_path))
+        process = stream_video(url)
+        return StreamingResponse(
+            process.stdout,
+            media_type="video/mp4",
+            headers={"Content-Disposition": "attachment; filename=video.mp4"}
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/download/instagram")
 def download_instagram(url: str = Query(...)):
     try:
-        file_path = download_video(url)
-        return FileResponse(file_path, filename=os.path.basename(file_path))
+        process = stream_video(url)
+        return StreamingResponse(
+            process.stdout,
+            media_type="video/mp4",
+            headers={"Content-Disposition": "attachment; filename=video.mp4"}
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/download/twitter")
 def download_twitter(url: str = Query(...)):
     try:
-        file_path = download_video(url)
-        return FileResponse(file_path, filename=os.path.basename(file_path))
+        process = stream_video(url)
+        return StreamingResponse(
+            process.stdout,
+            media_type="video/mp4",
+            headers={"Content-Disposition": "attachment; filename=video.mp4"}
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/download/telegram")
 def download_telegram(url: str = Query(...)):
     try:
-        file_path = download_video(url)
-        return FileResponse(file_path, filename=os.path.basename(file_path))
+        process = stream_video(url)
+        return StreamingResponse(
+            process.stdout,
+            media_type="video/mp4",
+            headers={"Content-Disposition": "attachment; filename=video.mp4"}
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
