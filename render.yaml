@@ -1,9 +1,8 @@
 services:
-  # A Docker web service
   - type: web
-    name: fastapi-example
+    name: ytmate-backend
     runtime: python
-    plan: free
-    autoDeploy: false
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    buildCommand: |
+      pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
