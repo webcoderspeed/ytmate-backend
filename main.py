@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, APIRouter, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import yt_dlp
 import subprocess
+import requests
 
 app = FastAPI()
 
@@ -17,6 +18,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+api_router = APIRouter()
 
 def stream_video(url: str, format: str = "best"):
     ydl_opts = {
@@ -55,7 +58,7 @@ def get_facebook_format_code(format_key: str):
     # For Facebook, yt-dlp uses 'sd' and 'hd' as format selectors
     return fb_format_map.get(format_key.lower(), format_key)
 
-@app.get("/download/youtube")
+@api_router.get("/download/youtube")
 def download_youtube(
     url: str = Query(...),
     format: str = Query("best")
@@ -77,7 +80,7 @@ def download_youtube(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/download/facebook")
+@api_router.get("/download/facebook")
 def download_facebook(
     url: str = Query(...),
     format: str = Query("best")
@@ -99,7 +102,7 @@ def download_facebook(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/download/vimeo")
+@api_router.get("/download/vimeo")
 def download_vimeo(
     url: str = Query(...),
     format: str = Query("best")  # Default to 'best' if not specified
@@ -130,7 +133,7 @@ def get_instagram_format_code(format_key: str):
     }
     return insta_format_map.get(format_key.lower(), format_key)
 
-@app.get("/download/instagram")
+@api_router.get("/download/instagram")
 def download_instagram(
     url: str = Query(...),
     format: str = Query("best")
@@ -157,7 +160,7 @@ def download_instagram(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/download/twitter")
+@api_router.get("/download/twitter")
 def download_twitter(
     url: str = Query(...),
     format: str = Query("best")  # Default to 'best' if not specified
@@ -178,7 +181,7 @@ def download_twitter(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/download/telegram")
+@api_router.get("/download/telegram")
 def download_telegram(url: str = Query(...)):
     try:
         process = stream_video(url)
@@ -190,7 +193,7 @@ def download_telegram(url: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/convert/audio")
+@api_router.get("/convert/audio")
 def convert_audio(
     url: str = Query(...),
     format: str = Query("mp3"),         # audio format: mp3, aac, wav, ogg
@@ -228,7 +231,7 @@ def convert_audio(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/convert/hd")
+@api_router.get("/convert/hd")
 def convert_hd(
     url: str = Query(...),
     format: str = Query("best")  # e.g., 22 for 720p, 137+140 for 1080p, etc.
@@ -245,7 +248,7 @@ def convert_hd(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/info")
+@api_router.get("/info")
 def info(
     platform: str = Query(..., description="Platform name, e.g. youtube, instagram, facebook, etc."),
     url: str = Query(..., description="Media URL"),
@@ -330,3 +333,5 @@ def proxy(url: str, request: Request):
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+app.include_router(api_router, prefix="/api")
