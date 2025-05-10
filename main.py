@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Query, HTTPException, Request
+from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import yt_dlp
@@ -19,16 +19,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_router = APIRouter()
+# --- Format Mapping ---
+YOUTUBE_FORMAT_MAP = {
+    "360p": "18",
+    "720p": "22",
+    "1080p": "137+140",
+    "1440p": "271+140",
+    "4k": "313+140",
+    "mp3": "bestaudio",
+    "audio": "bestaudio",
+    "best": "best",
+}
+
+def get_youtube_format_code(format_key: str):
+    return YOUTUBE_FORMAT_MAP.get(format_key.lower(), format_key)
 
 def stream_video(url: str, format: str = "best"):
-    ydl_opts = {
-        'format': format,
-        'outtmpl': '-',  # Output to stdout
-        'quiet': True,
-        'noplaylist': True,
-    }
-    # Use yt-dlp to stream to stdout
     process = subprocess.Popen(
         ['yt-dlp', '-f', format, '-o', '-', url],
         stdout=subprocess.PIPE,
@@ -36,32 +42,10 @@ def stream_video(url: str, format: str = "best"):
     )
     return process
 
-def get_youtube_format_code(format_key: str):
-    # Map frontend keys to yt-dlp format codes for YouTube
-    yt_format_map = {
-        "360p": "18",
-        "720p": "22",
-        "1080p": "137+140",
-        "1440p": "271+140",
-        "4k": "313+140",
-        "mp3": "bestaudio",
-    }
-    return yt_format_map.get(format_key.lower(), format_key)
-
-def get_facebook_format_code(format_key: str):
-    # Map frontend keys to yt-dlp format codes for Facebook
-    fb_format_map = {
-        "sd": "sd",
-        "hd": "hd",
-        "mp3": "bestaudio",
-    }
-    # For Facebook, yt-dlp uses 'sd' and 'hd' as format selectors
-    return fb_format_map.get(format_key.lower(), format_key)
-
-@api_router.get("/download/youtube")
+@app.get("/download/youtube")
 def download_youtube(
-    url: str = Query(...),
-    format: str = Query("best")
+    url: str = Query(..., description="YouTube video URL"),
+    format: str = Query("best", description="Format key (e.g. 360p, 720p, mp3, etc.)")
 ):
     try:
         yt_format = get_youtube_format_code(format)
@@ -78,9 +62,17 @@ def download_youtube(
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
 
-@api_router.get("/download/facebook")
+def get_facebook_format_code(format_key: str):
+    fb_format_map = {
+        "sd": "sd",
+        "hd": "hd",
+        "mp3": "bestaudio",
+    }
+    return fb_format_map.get(format_key.lower(), format_key)
+
+@app.get("/download/facebook")
 def download_facebook(
     url: str = Query(...),
     format: str = Query("best")
@@ -102,10 +94,10 @@ def download_facebook(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@api_router.get("/download/vimeo")
+@app.get("/download/vimeo")
 def download_vimeo(
     url: str = Query(...),
-    format: str = Query("best")  # Default to 'best' if not specified
+    format: str = Query("best")
 ):
     try:
         process = stream_video(url, format)
@@ -124,7 +116,6 @@ def download_vimeo(
         raise HTTPException(status_code=400, detail=str(e))
 
 def get_instagram_format_code(format_key: str):
-    # Map frontend keys to yt-dlp format codes for Instagram
     insta_format_map = {
         "mp4-hd": "best",
         "mp4-sd": "worst",
@@ -133,16 +124,14 @@ def get_instagram_format_code(format_key: str):
     }
     return insta_format_map.get(format_key.lower(), format_key)
 
-@api_router.get("/download/instagram")
+@app.get("/download/instagram")
 def download_instagram(
     url: str = Query(...),
     format: str = Query("best")
 ):
-    
     try:
         insta_format = get_instagram_format_code(format)
         process = stream_video(url, insta_format)
-        # Set media_type and filename based on format (basic logic, can be improved)
         if "jpg" in format or "image" in format:
             media_type = "image/jpeg"
             filename = "image.jpg"
@@ -160,10 +149,10 @@ def download_instagram(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@api_router.get("/download/twitter")
+@app.get("/download/twitter")
 def download_twitter(
     url: str = Query(...),
-    format: str = Query("best")  # Default to 'best' if not specified
+    format: str = Query("best")
 ):
     try:
         process = stream_video(url, format)
@@ -181,7 +170,7 @@ def download_twitter(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@api_router.get("/download/telegram")
+@app.get("/download/telegram")
 def download_telegram(url: str = Query(...)):
     try:
         process = stream_video(url)
@@ -193,14 +182,13 @@ def download_telegram(url: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@api_router.get("/convert/audio")
+@app.get("/convert/audio")
 def convert_audio(
     url: str = Query(...),
-    format: str = Query("mp3"),         # audio format: mp3, aac, wav, ogg
-    bitrate: str = Query("128k")        # bitrate: 128k, 320k, etc.
+    format: str = Query("mp3"),
+    bitrate: str = Query("128k")
 ):
     try:
-        # Map format to ffmpeg extension and mime type
         ext_map = {
             "mp3":  ("mp3",  "audio/mpeg"),
             "aac":  ("aac",  "audio/aac"),
@@ -230,11 +218,10 @@ def convert_audio(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-@api_router.get("/convert/hd")
+@app.get("/convert/hd")
 def convert_hd(
     url: str = Query(...),
-    format: str = Query("best")  # e.g., 22 for 720p, 137+140 for 1080p, etc.
+    format: str = Query("best")
 ):
     try:
         process = stream_video(url, format)
@@ -248,14 +235,13 @@ def convert_hd(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@api_router.get("/info")
+@app.get("/info")
 def info(
     platform: str = Query(..., description="Platform name, e.g. youtube, instagram, facebook, etc."),
     url: str = Query(..., description="Media URL"),
     format: str = Query("best", description="Format ID")
 ):
     try:
-        # Use yt-dlp to extract info without downloading
         ydl_opts = {
             "quiet": True,
             "skip_download": True,
@@ -269,7 +255,6 @@ def info(
         thumbnail = info_dict.get("thumbnail", "/placeholder.svg")
         duration = info_dict.get("duration")
         if duration:
-            # Format duration as H:MM:SS
             hours = duration // 3600
             minutes = (duration % 3600) // 60
             seconds = duration % 60
@@ -277,17 +262,20 @@ def info(
         else:
             duration_str = "Unknown"
 
-        # Improved file size detection
         file_size = None
         matched_format = None
+        # Use mapped format for YouTube
+        if platform.lower() == "youtube":
+            mapped_format = get_youtube_format_code(format)
+        else:
+            mapped_format = format
         for f in info_dict.get("formats", []):
-            if f.get("format_id") == format or f.get("format_note") == format:
+            if f.get("format_id") == mapped_format or f.get("format_note") == mapped_format:
                 matched_format = f
                 break
         if matched_format:
             file_size = matched_format.get("filesize") or matched_format.get("filesize_approx")
         else:
-            # Fallback: pick the largest filesize available
             sizes = [
                 f.get("filesize") or f.get("filesize_approx")
                 for f in info_dict.get("formats", [])
@@ -311,18 +299,11 @@ def info(
             content={"error": str(e)}
         )
 
-
-from fastapi import Request
-import requests
-from fastapi.responses import StreamingResponse
-
 @app.get("/proxy")
 def proxy(url: str, request: Request):
     try:
-        # Forward the request to the target URL
         r = requests.get(url, stream=True, timeout=10)
         r.raise_for_status()
-        # Get content type from the response
         content_type = r.headers.get("content-type", "application/octet-stream")
         return StreamingResponse(
             r.raw,
@@ -334,4 +315,3 @@ def proxy(url: str, request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-app.include_router(api_router, prefix="/api")
